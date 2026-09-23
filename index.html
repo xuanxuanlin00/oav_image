@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>圖片識別系統</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --text: #1d232b; --muted: #5d6875; --line: #dde2e8;
+  --accent: #0f6f7c; --accent-soft: #e2f1f3; --warn: #a35a00; --warn-soft: #fff3e0;
+  --ok: #217a3c; --bad: #b3261e; --shadow: 0 1px 2px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14181d; --panel: #1c2229; --text: #e6e9ed; --muted: #9aa5b1; --line: #2e3740;
+    --accent: #4fb8c6; --accent-soft: #1d3439; --warn: #f0b060; --warn-soft: #3a2c19;
+    --ok: #6fcf8a; --bad: #f28b82; --shadow: none;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.6 "Microsoft JhengHei", "Noto Sans TC", system-ui, sans-serif; }
+header { padding: 20px 24px 8px; max-width: 1100px; margin: 0 auto; }
+h1 { margin: 0; font-size: 22px; }
+#status { color: var(--muted); font-size: 13px; margin-top: 2px; }
+main { max-width: 1100px; margin: 0 auto; padding: 8px 24px 40px; display: grid; gap: 16px;
+  grid-template-columns: minmax(300px, 380px) 1fr; align-items: start; }
+@media (max-width: 800px) { main { grid-template-columns: 1fr; padding: 8px 16px 32px; } header { padding: 16px 16px 4px; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+.tabs { display: flex; border-bottom: 1px solid var(--line); }
+.tabs button { flex: 1; padding: 12px 6px; border: 0; background: none; color: var(--muted); font: inherit;
+  cursor: pointer; border-bottom: 2px solid transparent; }
+.tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.pane { padding: 16px; display: none; }
+.pane.active { display: block; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 16px; border-radius: 8px;
+  border: 1px solid var(--accent); background: var(--accent); color: #fff; font: inherit; cursor: pointer; }
+.btn.secondary { background: none; color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: default; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+#drop { border: 2px dashed var(--line); border-radius: 10px; padding: 28px 12px; text-align: center; color: var(--muted); cursor: pointer; }
+#drop.over { border-color: var(--accent); background: var(--accent-soft); }
+video, #queryImg { width: 100%; border-radius: 8px; background: #000; display: block; }
+video { aspect-ratio: 4/3; object-fit: cover; }
+#queryBox { padding: 16px; border-top: 1px solid var(--line); display: none; }
+#queryBox h3, .results h2 { margin: 0 0 8px; font-size: 15px; }
+#queryImg { background: none; max-height: 260px; object-fit: contain; }
+.mic { width: 84px; height: 84px; border-radius: 50%; font-size: 34px; margin: 6px auto 10px; display: flex; }
+.mic.listening { background: var(--bad); border-color: var(--bad); animation: pulse 1.2s infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 10px rgba(179,38,30,.15); } }
+.center { text-align: center; }
+#heard { min-height: 1.6em; font-weight: 600; }
+input[type=text] { flex: 1; min-width: 0; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--text); font: inherit; }
+.hint { color: var(--muted); font-size: 13px; }
+.note { background: var(--warn-soft); color: var(--warn); padding: 8px 10px; border-radius: 8px; font-size: 13px; margin-top: 10px; }
+.results { padding: 16px; min-height: 200px; }
+#verdict { margin-bottom: 12px; }
+#verdict strong { color: var(--accent); font-size: 18px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+.card { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); cursor: pointer; }
+.card:hover { border-color: var(--accent); }
+.card.top { border: 2px solid var(--accent); }
+.card img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #fff; display: block; }
+.card .info { padding: 8px 10px; }
+.card .name { font-weight: 600; font-size: 14px; line-height: 1.35; }
+.card .meta { color: var(--muted); font-size: 12px; }
+.bar { height: 5px; border-radius: 3px; background: var(--line); margin-top: 6px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); }
+.empty { color: var(--muted); padding: 40px 0; text-align: center; }
+#selftest table { border-collapse: collapse; width: 100%; font-size: 13px; }
+#selftest td, #selftest th { border-bottom: 1px solid var(--line); padding: 4px 6px; text-align: left; }
+.pass { color: var(--ok); } .fail { color: var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <h1>圖片識別系統</h1>
+  <div id="status">載入模型中…</div>
+</header>
+<main>
+  <section class="panel">
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-pane="paneUpload">上傳圖片</button>
+      <button role="tab" aria-selected="false" data-pane="paneCamera">相機拍照</button>
+      <button role="tab" aria-selected="false" data-pane="paneVoice">語音查詢</button>
+    </div>
+
+    <div class="pane active" id="paneUpload">
+      <div id="drop">點這裡選擇圖片，或把圖片拖曳到這裡<br><span class="hint">也可以直接 Ctrl+V 貼上</span></div>
+      <input type="file" id="fileInput" accept="image/*" hidden>
+    </div>
+
+    <div class="pane" id="paneCamera">
+      <video id="video" autoplay playsinline muted></video>
+      <div class="row">
+        <button class="btn" id="camStart">開啟相機</button>
+        <button class="btn" id="camShot" disabled>拍照查詢</button>
+        <button class="btn secondary" id="camSwitch" disabled>切換鏡頭</button>
+        <button class="btn secondary" id="camStop" disabled>關閉</button>
+      </div>
+      <div class="note" id="camMsg" hidden></div>
+    </div>
+
+    <div class="pane" id="paneVoice">
+      <div class="center">
+        <button class="btn mic" id="micBtn" title="按一下開始說話" aria-label="開始語音查詢">🎤</button>
+        <div class="hint">按一下麥克風，說出要找的東西，例如「白色的狗」「黑色休旅車」「封邊機」</div>
+        <div id="heard"></div>
+      </div>
+      <div class="row">
+        <input type="text" id="textQuery" placeholder="或直接輸入文字查詢">
+        <button class="btn" id="textBtn">查詢</button>
+      </div>
+      <div class="note" id="voiceMsg" hidden></div>
+    </div>
+
+    <div id="queryBox">
+      <h3>查詢圖片</h3>
+      <img id="queryImg" alt="查詢圖片">
+    </div>
+  </section>
+
+  <section class="panel results">
+    <div id="verdict"></div>
+    <div id="results"><div class="empty">上傳圖片、拍照或用語音查詢，這裡會列出圖庫中最相似的圖片</div></div>
+    <div id="selftest"></div>
+  </section>
+</main>
+
+<script src="lib/tf.min.js"></script>
+<script>
+'use strict';
+const TOP_K = 6;
+const LOW_SIM = 0.35;                 // 最相似的分數低於這個值 → 提醒「圖庫可能沒有相似圖片」
+const $ = id => document.getElementById(id);
+let model = null;
+let library = [];                      // { file, name, category, keywords, vec }
+let categories = {};
+const setStatus = t => { $('status').textContent = t; };
+
+// ---------- 特徵擷取（MobileNet v2，1280 維，L2 正規化） ----------
+function toCanvas(src, flip = false) {
+  // 等比例縮放置中到 224x224 白底，避免長寬比被拉伸
+  const S = 224, c = document.createElement('canvas');
+  c.width = c.height = S;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';   // 固定縮圖品質，否則同一張圖第一次和之後算出的特徵會不同
+  g.fillStyle = '#fff'; g.fillRect(0, 0, S, S);
+  const w = src.videoWidth || src.naturalWidth || src.width, h = src.videoHeight || src.naturalHeight || src.height;
+  const r = Math.min(S / w, S / h), dw = w * r, dh = h * r;
+  if (flip) { g.translate(S, 0); g.scale(-1, 1); }
+  g.drawImage(src, (S - dw) / 2, (S - dh) / 2, dw, dh);
+  return c;
+}
+function embed(src) {
+  // 原圖 + 左右翻轉取平均，結果較穩定
+  return tf.tidy(() => {
+    const batch = tf.stack([toCanvas(src), toCanvas(src, true)].map(c => tf.browser.fromPixels(c).toFloat().div(255)));
+    const out = model.predict(batch).mean(0);
+    return out.div(out.norm()).dataSync().slice();
+  });
+}
+function cosine(a, b) { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; }
+
+function loadImage(url) {
+  return new Promise((ok, fail) => {
+    const im = new Image();
+    im.onload = () => im.decode().then(() => ok(im), () => ok(im));
+    im.onerror = () => fail(new Error('無法讀取圖片 ' + url));
+    im.src = url;
+  });
+}
+
+// 特徵快取（每位使用者自己的瀏覽器；失敗就重新計算）
+function cacheKey(it) { return 'emb:v2:' + it.file + ':' + it.size + ':' + it.hash; }
+function cacheGet(it) {
+  try {
+    const s = localStorage.getItem(cacheKey(it));
+    if (!s) return null;
+    const bin = atob(s), u = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    return new Float32Array(u.buffer);
+  } catch (e) { return null; }
+}
+function cachePut(it, vec) {
+  try {
+    const u = new Uint8Array(vec.buffer); let s = '';
+    for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]);
+    localStorage.setItem(cacheKey(it), btoa(s));
+  } catch (e) { /* 空間不足或被封鎖就不快取 */ }
+}
+
+async function init() {
+  try {
+    await tf.ready();
+    model = await tf.loadGraphModel('model/model.json');
+    // 暖機：WebGL 第一次執行時著色器還在編譯，結果可能不正確
+    tf.tidy(() => { model.predict(tf.zeros([2, 224, 224, 3])).dataSync(); });
+    setStatus('模型已載入，建立圖庫索引中…');
+    // 靜態網站（GitHub Pages）：images.json 列出 images/ 裡的圖片，catalog.json 提供名稱/類別/關鍵字
+    const [files, catalog] = await Promise.all(['images.json', 'catalog.json'].map(async u => {
+      const r = await fetch(u, { cache: 'no-cache' });
+      if (!r.ok) throw new Error('讀不到 ' + u);
+      return r.json();
+    }));
+    categories = catalog.categories || {};
+    const meta = catalog.images || {};
+    const items = files.map(f => {
+      const m = meta[f.file];
+      return { ...f, name: m ? m.name : f.file.replace(/\.[^.]+$/, ''), category: m ? m.category : '未分類', keywords: m ? m.keywords || [] : [] };
+    });
+    const skipCache = new URLSearchParams(location.search).has('selftest');
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      it.url = 'images/' + encodeURIComponent(it.file) + '?v=' + encodeURIComponent(it.hash);
+      let vec = skipCache ? null : cacheGet(it);
+      if (!vec || vec.length !== 1280) {
+        it.img = await loadImage(it.url);
+        vec = embed(it.img);
+        cachePut(it, vec);
+      }
+      it.vec = vec;
+      library.push(it);
+      setStatus(`建立圖庫索引中… ${i + 1} / ${items.length}`);
+    }
+    setStatus(`就緒：圖庫共 ${library.length} 張圖片（模型 MobileNet v2，運算後端 ${tf.getBackend()}）`);
+    if (skipCache) runSelfTest();
+  } catch (e) {
+    console.error(e);
+    setStatus('初始化失敗：' + e.message + '（請用 https 網址開啟；本機預覽請用 start.bat，從 http://localhost:8765 開啟）');
+  }
+}
+
+// ---------- 以圖找圖 ----------
+function rankByImage(vec, excludeFile) {
+  return library.filter(it => it.file !== excludeFile)
+    .map(it => ({ it, score: cosine(vec, it.vec) }))
+    .sort((a, b) => b.score - a.score);
+}
+async function searchByImageSource(src, previewUrl, excludeFile) {
+  if (!model || !library.length) { setStatus('圖庫尚未就緒，請稍候'); return; }
+  showQuery(previewUrl);
+  const ranked = rankByImage(embed(src), excludeFile);
+  const top = ranked[0];
+  // 類別判斷用最相似那張的類別（每類只有幾張圖，前幾名投票反而容易被別類蓋過）
+  const bestCat = top.it.category;
+  let html = `最相似：<strong>${esc(top.it.name)}</strong>（${pct(top.score)}）　判斷類別：<strong>${esc(bestCat)}</strong>`;
+  if (top.score < LOW_SIM) html += `<div class="note">相似度偏低，圖庫中可能沒有這類圖片</div>`;
+  $('verdict').innerHTML = html;
+  renderCards(ranked.slice(0, TOP_K), r => pct(r.score), r => Math.max(0, r.score));
+}
+function showQuery(url) {
+  if (url) { $('queryImg').src = url; $('queryBox').style.display = 'block'; }
+  else { $('queryBox').style.display = 'none'; }
+}
+
+// ---------- 語音／文字查詢 ----------
+const norm = s => String(s).toLowerCase().replace(/[\s\-_.,，。、!！?？:：;；'"「」()（）]/g, '');
+const FILLERS = ['我要找', '幫我找', '請找', '找一下', '查詢', '搜尋', '我想找', '找', '圖片', '照片', '相片', '一張', '一個', '一台', '一隻', '的'];
+function stripFillers(q) { let s = q; FILLERS.forEach(f => { s = s.split(f).join(' '); }); return s; }
+function catKeywords(catName) {
+  for (const k in categories) if (categories[k].name === catName) return categories[k].keywords || [];
+  return [];
+}
+function matchTerms(q, terms) {
+  // 回傳查詢字串中出現的詞（去掉被更長的詞包含的重複）
+  const hit = [...new Set(terms.map(norm).filter(t => t && q.includes(t)))];
+  return hit.filter(t => !hit.some(o => o !== t && o.includes(t)));
+}
+function rankByText(text) {
+  const q = norm(stripFillers(text));
+  if (!q) return { q, ranked: [] };
+  const scored = library.map(it => {
+    const catHit = matchTerms(q, [it.category, ...catKeywords(it.category)]);
+    const itemHit = matchTerms(q, [it.name, ...(it.keywords || [])]);
+    // 查詢是某個詞的一部分（例如只說「封邊」）
+    const partial = [it.name, ...(it.keywords || [])].map(norm).some(t => q.length >= 2 && t.includes(q));
+    const score = itemHit.reduce((s, t) => s + t.length * 2, 0) + catHit.reduce((s, t) => s + t.length, 0) + (partial ? q.length : 0);
+    return { it, score, catHit: catHit.length > 0, hits: [...catHit, ...itemHit] };
+  });
+  // 有講到類別 → 只在該類別裡排序
+  const anyCat = scored.some(r => r.catHit);
+  const ranked = scored.filter(r => r.score > 0 && (!anyCat || r.catHit)).sort((a, b) => b.score - a.score);
+  return { q, ranked };
+}
+function searchByText(text) {
+  if (!library.length) { setStatus('圖庫尚未就緒，請稍候'); return; }
+  showQuery(null);
+  $('heard').textContent = text ? `「${text}」` : '';
+  const { ranked } = rankByText(text);
+  if (!ranked.length) {
+    $('verdict').innerHTML = `找不到符合「${esc(text)}」的圖片`;
+    $('results').innerHTML = `<div class="empty">可以試試：螺絲、狗、木工機械、鋸片、汽車，或顏色＋類別（例如「黑色的車」）</div>`;
+    return;
+  }
+  const max = ranked[0].score;
+  $('verdict').innerHTML = `「${esc(text)}」找到 <strong>${ranked.length}</strong> 張，最符合：<strong>${esc(ranked[0].it.name)}</strong>`;
+  renderCards(ranked.slice(0, TOP_K), r => '符合：' + r.hits.join('、'), r => r.score / max);
+}
+
+// ---------- 結果 ----------
+const pct = s => (Math.max(0, s) * 100).toFixed(1) + '%';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function renderCards(rows, label, bar) {
+  $('results').innerHTML = '<div class="grid">' + rows.map((r, i) => `
+    <div class="card${i === 0 ? ' top' : ''}" data-file="${esc(r.it.file)}" title="點一下：用這張圖找相似圖片">
+      <img src="${r.it.url}" alt="${esc(r.it.name)}" loading="lazy">
+      <div class="info">
+        <div class="name">${i + 1}. ${esc(r.it.name)}</div>
+        <div class="meta">${esc(r.it.category)} · ${esc(r.it.file)}</div>
+        <div class="meta">${esc(label(r))}</div>
+        <div class="bar"><i style="width:${(bar(r) * 100).toFixed(0)}%"></i></div>
+      </div>
+    </div>`).join('') + '</div>';
+}
+$('results').addEventListener('click', async e => {
+  const card = e.target.closest('.card'); if (!card) return;
+  const it = library.find(x => x.file === card.dataset.file); if (!it) return;
+  const im = it.img || (it.img = await loadImage(it.url));
+  searchByImageSource(im, it.url, it.file);   // 找「其他」相似圖片，不列出自己
+});
+
+// ---------- 分頁 ----------
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.setAttribute('aria-selected', x === b));
+  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('active', p.id === b.dataset.pane));
+  if (b.dataset.pane !== 'paneCamera') stopCamera();
+}));
+
+// ---------- 上傳 ----------
+async function handleFile(f) {
+  if (!f || !f.type.startsWith('image/')) return;
+  const url = URL.createObjectURL(f);
+  try { searchByImageSource(await loadImage(url), url); }
+  catch (e) { setStatus('這個檔案無法讀取成圖片'); }
+}
+const drop = $('drop');
+drop.addEventListener('click', () => $('fileInput').click());
+$('fileInput').addEventListener('change', e => { handleFile(e.target.files[0]); e.target.value = ''; });
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); handleFile(e.dataTransfer.files[0]); });
+document.addEventListener('paste', e => {
+  const item = [...(e.clipboardData?.items || [])].find(x => x.type.startsWith('image/'));
+  if (item) handleFile(item.getAsFile());
+});
+
+// ---------- 相機 ----------
+let stream = null, facing = 'environment';
+async function startCamera() {
+  stopCamera();
+  $('camMsg').hidden = true;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1280 } }, audio: false });
+    $('video').srcObject = stream;
+    ['camShot', 'camSwitch', 'camStop'].forEach(id => $(id).disabled = false);
+  } catch (e) {
+    $('camMsg').hidden = false;
+    $('camMsg').textContent = '無法開啟相機：' + (e.name === 'NotAllowedError' ? '請允許瀏覽器使用相機' : e.message);
+  }
+}
+function stopCamera() {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = null; $('video').srcObject = null;
+  ['camShot', 'camSwitch', 'camStop'].forEach(id => $(id).disabled = true);
+}
+$('camStart').onclick = startCamera;
+$('camStop').onclick = stopCamera;
+$('camSwitch').onclick = () => { facing = facing === 'environment' ? 'user' : 'environment'; startCamera(); };
+$('camShot').onclick = () => {
+  const v = $('video'); if (!v.videoWidth) return;
+  const c = document.createElement('canvas');
+  c.width = v.videoWidth; c.height = v.videoHeight;
+  c.getContext('2d').drawImage(v, 0, 0);
+  searchByImageSource(c, c.toDataURL('image/jpeg', 0.9));
+};
+
+// ---------- 語音 ----------
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, listening = false;
+if (!SR) {
+  $('voiceMsg').hidden = false;
+  $('voiceMsg').textContent = '這個瀏覽器不支援語音辨識，請改用 Chrome 或 Edge，或直接輸入文字。';
+  $('micBtn').disabled = true;
+} else {
+  rec = new SR();
+  rec.lang = 'zh-TW'; rec.interimResults = true; rec.maxAlternatives = 1;
+  rec.onstart = () => { listening = true; $('micBtn').classList.add('listening'); $('heard').textContent = '聆聽中…'; };
+  rec.onend = () => { listening = false; $('micBtn').classList.remove('listening'); };
+  rec.onresult = e => {
+    const r = e.results[e.results.length - 1], text = r[0].transcript;
+    $('heard').textContent = `「${text}」`;
+    if (r.isFinal) { $('textQuery').value = text; searchByText(text); }
+  };
+  rec.onerror = e => {
+    $('voiceMsg').hidden = false;
+    $('voiceMsg').textContent = {
+      'not-allowed': '請允許瀏覽器使用麥克風。',
+      'no-speech': '沒有聽到聲音，請再試一次。',
+      'network': '語音辨識需要網路連線（Chrome/Edge 會把語音送到雲端辨識），請改用文字查詢。'
+    }[e.error] || ('語音辨識錯誤：' + e.error);
+  };
+  $('micBtn').onclick = () => {
+    $('voiceMsg').hidden = true;
+    if (listening) rec.stop(); else rec.start();
+  };
+}
+$('textBtn').onclick = () => searchByText($('textQuery').value.trim());
+$('textQuery').addEventListener('keydown', e => { if (e.key === 'Enter') searchByText(e.target.value.trim()); });
+
+// ---------- 自我測試（網址加 ?selftest=1） ----------
+function augment(im) {
+  // 模擬手機拍照：裁掉 15% 邊緣、旋轉 8 度、調暗
+  const w = im.naturalWidth, h = im.naturalHeight, c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  g.fillStyle = '#ddd'; g.fillRect(0, 0, w, h);
+  g.filter = 'brightness(0.8) contrast(1.1)';
+  g.translate(w / 2, h / 2); g.rotate(8 * Math.PI / 180);
+  g.drawImage(im, w * 0.15, h * 0.15, w * 0.7, h * 0.7, -w / 2, -h / 2, w, h);
+  return c;
+}
+async function runSelfTest() {
+  const rows = []; let selfOk = 0, looOk = 0;
+  for (const it of library) {
+    const im = it.img || (it.img = await loadImage(it.url));
+    const a = rankByImage(embed(augment(im)))[0];
+    const loo = rankByImage(it.vec, it.file)[0];
+    const s1 = a.it.file === it.file, s2 = loo.it.category === it.category;
+    selfOk += s1; looOk += s2;
+    rows.push(`<tr><td>${esc(it.file)}</td><td class="${s1 ? 'pass' : 'fail'}">${esc(a.it.file)} ${pct(a.score)}</td>` +
+      `<td class="${s2 ? 'pass' : 'fail'}">${esc(loo.it.file)}（${esc(loo.it.category)}）${pct(loo.score)}</td></tr>`);
+  }
+  const textCases = [['白色的狗', 'B003_1.jpg'], ['黑色休旅車', 'E003_1.jpg'], ['封邊機', 'C002_1.jpg'], ['特斯拉', 'E002_1.jpg'],
+    ['六角螺栓', 'A002_1.jpg'], ['我要找鋸片', 'D'], ['找一台帶鋸機', 'C003_1.jpg'], ['狗', 'B']];
+  let textOk = 0;
+  const trows = textCases.map(([q, want]) => {
+    const r = rankByText(q).ranked[0];
+    const got = r ? r.it.file : '（無）';
+    const ok = r && (want.length === 1 ? got.startsWith(want) : got === want);
+    textOk += ok;
+    return `<tr><td>${esc(q)}</td><td>${esc(want)}</td><td class="${ok ? 'pass' : 'fail'}">${esc(got)}</td></tr>`;
+  });
+  const n = library.length;
+  $('selftest').innerHTML = `<h2>自我測試</h2>
+    <p id="selftestSummary" data-self="${selfOk}" data-loo="${looOk}" data-text="${textOk}" data-n="${n}" data-textn="${textCases.length}">
+    變形後找回原圖 ${selfOk}/${n}；排除自己後最相似為同類別 ${looOk}/${n}；文字查詢 ${textOk}/${textCases.length}</p>
+    <table><tr><th>圖片</th><th>變形查詢 top-1</th><th>排除自己 top-1</th></tr>${rows.join('')}</table>
+    <table style="margin-top:12px"><tr><th>文字</th><th>預期</th><th>結果</th></tr>${trows.join('')}</table>`;
+}
+
+init();
+</script>
+</body>
+</html>

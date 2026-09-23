@@ -1,0 +1,26 @@
+{
+  "categories": {
+    "A": { "name": "螺絲", "keywords": ["螺絲", "螺栓", "螺絲釘", "五金", "screw", "bolt"] },
+    "B": { "name": "狗", "keywords": ["狗", "狗狗", "犬", "小狗", "寵物", "dog"] },
+    "C": { "name": "木工機械", "keywords": ["機械", "機器", "木工", "木工機", "設備", "machine"] },
+    "D": { "name": "鋸片", "keywords": ["鋸片", "圓鋸片", "鋸子", "刀片", "saw blade", "blade"] },
+    "E": { "name": "汽車", "keywords": ["車", "汽車", "車子", "轎車", "car"] }
+  },
+  "images": {
+    "A001_1.jpg": { "name": "十字沉頭螺絲", "category": "螺絲", "keywords": ["十字", "沉頭", "平頭", "銀色", "機械螺絲"] },
+    "A002_1.jpg": { "name": "黑色六角螺栓", "category": "螺絲", "keywords": ["六角", "螺栓", "黑色", "外六角"] },
+    "A003_1.jpg": { "name": "滾花手轉螺絲", "category": "螺絲", "keywords": ["手轉", "滾花", "手擰", "旋鈕", "圓頭"] },
+    "B001_1.jpg": { "name": "杜賓犬", "category": "狗", "keywords": ["杜賓", "杜賓犬", "黑色", "doberman"] },
+    "B002_1.jpg": { "name": "比利時馬林諾犬", "category": "狗", "keywords": ["馬林諾", "比利時", "牧羊犬", "警犬", "malinois"] },
+    "B003_1.jpg": { "name": "比熊犬", "category": "狗", "keywords": ["比熊", "白色", "白狗", "小型犬", "bichon"] },
+    "C001_1.jpg": { "name": "精密推台鋸", "category": "木工機械", "keywords": ["推台鋸", "裁板鋸", "鋸台", "OAV", "panel saw"] },
+    "C002_1.jpg": { "name": "自動封邊機 MAX 370M", "category": "木工機械", "keywords": ["封邊機", "封邊", "MAX 370M", "370M", "OAV", "edge bander"] },
+    "C003_1.jpg": { "name": "帶鋸機 SBW-4300", "category": "木工機械", "keywords": ["帶鋸機", "帶鋸", "SBW-4300", "4300", "OAV", "band saw"] },
+    "D001_1.jpg": { "name": "TRADESMAN 圓鋸片 190mm 40齒", "category": "鋸片", "keywords": ["TRADESMAN", "190", "40齒", "黑色", "木工鋸片"] },
+    "D002_1.jpg": { "name": "WURTH 圓鋸片 40齒", "category": "鋸片", "keywords": ["WURTH", "伍爾特", "40齒", "銀色"] },
+    "D003_1.jpg": { "name": "小型圓鋸片 24齒", "category": "鋸片", "keywords": ["小型", "24齒", "小鋸片", "銀色"] },
+    "E001_1.jpg": { "name": "Honda HR-V 白色休旅車", "category": "汽車", "keywords": ["Honda", "本田", "HRV", "HR-V", "白色", "休旅車", "SUV"] },
+    "E002_1.jpg": { "name": "Tesla Model S 藍色轎車", "category": "汽車", "keywords": ["Tesla", "特斯拉", "Model S", "藍色", "電動車", "轎車"] },
+    "E003_1.jpg": { "name": "Toyota RAV4 黑色休旅車", "category": "汽車", "keywords": ["Toyota", "豐田", "RAV4", "黑色", "休旅車", "SUV"] }
+  }
+}
